@@ -6,7 +6,10 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
     "types": ["bun"]
   },
-  "include": ["src/**/*"]
+  "include": ["*.js"],
+  "exclude": ["node_modules"]
 }
