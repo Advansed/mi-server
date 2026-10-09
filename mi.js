@@ -1,8 +1,10 @@
+const http = require('http');
 const express = require('express');
 const bodyParser = require('body-parser');
 const url = require('url');
 const cors = require('cors'); // <─ добавили
 const { startProcess } = require('./requestHandlers');
+const { attach } = require('./socketHub');
 
 const app = express();
 const PORT = 3060;
@@ -23,6 +25,7 @@ app.options('*', cors());
 // Универсальный обработчик запросов
 function onRequest(req, res) {
   const pathname = url.parse(req.url).pathname;
+  if (pathname.startsWith('/socket.io')) return;
   console.log( "route", pathname )
   startProcess(pathname, req, res);
 }
@@ -38,7 +41,10 @@ app.use((req, res) => {
   res.status(404).json({ error: true, message: 'Маршрут не найден' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = http.createServer(app);
+attach(server);
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
 });
 

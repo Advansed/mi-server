@@ -1,4 +1,5 @@
 const {pool, runQuery }   = require('./mssqldata');
+const { publishWorkers, publishInvoices } = require('./socketHub');
 const jwt                 = require('jsonwebtoken');
 const bcrypt              = require('bcrypt');
 const { v4: uuidv4 }      = require('uuid');
@@ -46,7 +47,13 @@ function startProcess(path, req, res) {
     case '/mp_set_inv':           method('mp_set_inv', params, res );break;
     case '/mp_get_act':           method('mp_get_act', params, res);break;         
     case '/mp_set_act':           method('mp_set_act', params, res);break;
-    case '/mp_set_location':      method_logs('set_location', params, res);break;
+    case '/mp_set_location':
+      method_logs('set_location', params, res)
+        .then((body) => {
+          if (body && body.success !== false) publishWorkers();
+        })
+        .catch((err) => console.error('set_location', err));
+      break;
 
     case '/mp_get_acts':          method('mp_get_acts', params, res);break;
 
@@ -55,7 +62,13 @@ function startProcess(path, req, res) {
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     //case '/upd_invoices':         method("ins_invoices", params, res); break;
-    case '/upd_orders':           method_logs("ins_orders", params, res); break;
+    case '/upd_orders':
+      method_logs('ins_orders', params, res)
+        .then((body) => {
+          if (body && body.success !== false) publishInvoices();
+        })
+        .catch((err) => console.error('ins_orders', err));
+      break;
     case '/upd_tarifes':          method('ins_tarifes', params, res );break;
     case '/upd_equipments':       method('ins_equipments', params, res );break;
     case '/upd_agreements':       method('ins_agreements', params, res );break;
@@ -92,7 +105,9 @@ const method_logs               = async (path, params, res) => {
 
   console.log( result );
 
-  res.json( JSON.parse(result[0].data) );
+  const body = JSON.parse(result[0].data);
+  res.json(body);
+  return body;
 
 }
 
