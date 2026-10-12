@@ -25,12 +25,16 @@ function startProcess(path, req, res) {
     
     case '/upd_method':           upd_method( params, res );break;
     
-    case '/login':                method_logs('login', params, res );break;
+    case '/login':                method('login', params, res );break;
 
-    case '/invoices':             method_logs('invoices', params, res );break;
+    case '/invoices':             method('invoices', params, res );break;
 
-    case '/set_invoice':          method_logs('set_invoice', params, res );break;
+    case '/set_invoice':          method('set_invoice', params, res );break;
     case '/workers':              method('workers', params, res );break;
+    case '/get_session':          method('get_session', params, res );break;
+    case '/open_session':         method('open_session', params, res );break;
+    case '/close_session':        method('close_session', params, res );break;
+
     case '/set_inv_address':      method('set_inv_address', params, res );break;
     case '/set_inv_worker':       method('set_inv_worker', params, res );break;
     case '/set_inv_lic':          method('set_inv_lic', params, res );break;
@@ -39,6 +43,7 @@ function startProcess(path, req, res) {
     case '/del_lic':              method('del_lic', params, res );break;
     case '/get_lics':             method('get_lics', params, res );break;
     case '/get_lic':              method('get_lic', params, res );break;
+    
     case '/get_works':            method('get_works', params, res );break;
     case '/get_work_types':       method('get_work_types', params, res );break;
 
@@ -47,8 +52,8 @@ function startProcess(path, req, res) {
     case '/mp_set_inv':           method('mp_set_inv', params, res );break;
     case '/mp_get_act':           method('mp_get_act', params, res);break;         
     case '/mp_set_act':           method('mp_set_act', params, res);break;
-    case '/mp_set_location':
-      method_logs('set_location', params, res)
+    
+    case '/mp_set_location':      method('set_location', params, res)
         .then((body) => {
           if (body && body.success !== false) publishWorkers();
         })
