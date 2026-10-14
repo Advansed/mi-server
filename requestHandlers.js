@@ -54,6 +54,8 @@ function startProcess(path, req, res) {
     case '/mp_get_act':           method('mp_get_act', params, res);break;         
     case '/mp_set_act':           method('mp_set_act', params, res);break;
     case '/mp_plots':             method('plots', params, res);break;
+    case '/mp_plots':             method('plots', params, res);break;
+    case '/mp_find_lics':         method('find_lics', params, res);break;
     
     case '/mp_set_location':      method('set_location', params, res)
         .then((body) => {
