@@ -31,6 +31,7 @@ function startProcess(path, req, res) {
 
     case '/set_invoice':          method('set_invoice', params, res );break;
     case '/workers':              method('workers', params, res );break;
+    
     case '/get_session':          method('get_session', params, res );break;
     case '/open_session':         method('open_session', params, res );break;
     case '/close_session':        method('close_session', params, res );break;
@@ -52,6 +53,7 @@ function startProcess(path, req, res) {
     case '/mp_set_inv':           method('mp_set_inv', params, res );break;
     case '/mp_get_act':           method('mp_get_act', params, res);break;         
     case '/mp_set_act':           method('mp_set_act', params, res);break;
+    case '/mp_plots':             method('plots', params, res);break;
     
     case '/mp_set_location':      method('set_location', params, res)
         .then((body) => {
