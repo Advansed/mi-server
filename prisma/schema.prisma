@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+/// География `loca` в схеме нет: это вычисляемая колонка SQL Server.
+model t_locations {
+  id           BigInt   @id @default(autoincrement())
+  userId       String   @map("user") @db.UniqueIdentifier
+  lat          Decimal  @db.Decimal(9, 6)
+  lon          Decimal  @db.Decimal(9, 6)
+  speed        Float?   @map("Speed")
+  heading      Float?   @map("Heading")
+  batteryLevel Int?     @map("BatteryLevel") @db.TinyInt
+  updatedAt    DateTime @default(dbgenerated("sysdatetimeoffset()")) @map("UpdatedAt") @db.DateTimeOffset
+
+  @@index([userId, updatedAt(sort: Desc)], map: "IX_t_locations_user_UpdatedAt")
+  @@map("t_locations")
+}
+
+model d_acts {
+  id               String   @id @db.UniqueIdentifier
+  type             String   @db.NVarChar(20)
+  invoiceId        String   @map("invoice_id") @db.UniqueIdentifier
+  actNumber        String   @map("act_number") @db.NVarChar(50)
+  actDate          DateTime @map("act_date") @db.Date
+  createdAt        DateTime @map("created_at") @db.DateTime2
+  updatedAt        DateTime @map("updated_at") @db.DateTime2
+  status           String   @db.NVarChar(20)
+  title            String   @db.NVarChar(255)
+  data             String?  @db.NVarChar(Max)
+  documentScanPath String?  @map("document_scan_path") @db.NVarChar(500)
+  details          String?  @db.NVarChar(Max)
+  posted           Bytes?   @db.VarBinary(1)
+
+  @@index([actDate], map: "IX_d_acts_date")
+  @@index([invoiceId], map: "IX_d_acts_invoice_id")
+  @@unique([type, actNumber], map: "IX_d_acts_type_number")
+  @@map("d_acts")
+}
+
+model t_agreements {
+  id               String   @id @db.UniqueIdentifier
+  name             String   @db.NVarChar(255)
+  subscriberId     String   @map("subscriber_id") @db.UniqueIdentifier
+  personId         String   @map("person_id") @db.UniqueIdentifier
+  startDate        DateTime @map("start_date") @db.DateTime2
+  endDate          DateTime @map("end_date") @db.DateTime2
+  agreementType    String   @map("agreement_type") @db.NVarChar(255)
+  agreementVariant String   @map("agreement_variant") @db.NVarChar(255)
+  serviceName      String   @map("service_name") @db.NVarChar(255)
+
+  @@map("t_agreements")
+}
+
+model t_equipments {
+  id          String    @id @db.UniqueIdentifier
+  lc          String    @db.UniqueIdentifier
+  code        String?   @db.NVarChar(50)
+  name        String?   @db.NVarChar(255)
+  number      String?   @db.NVarChar(100)
+  releaseDate DateTime? @map("release_date") @db.DateTime2
+  type        String?   @db.NVarChar(100)
+  model       String?   @db.NVarChar(100)
+
+  @@map("t_equipments")
+}
+
+model t_invoices {
+  id           String    @db.UniqueIdentifier
+  licId        String    @map("lic_id") @db.UniqueIdentifier
+  servId       String    @map("serv_id") @db.UniqueIdentifier
+  number       String?   @db.VarChar(13)
+  date         DateTime? @db.DateTime
+  applicant    String?   @db.VarChar(150)
+  phone        String?   @db.VarChar(128)
+  address      String?   @db.VarChar(256)
+  lic          String    @db.VarChar(16)
+  service      String?   @db.VarChar(2048)
+  status       String?   @db.VarChar(24)
+  division     String?   @db.VarChar(64)
+  planDate     DateTime? @map("plan_date") @db.DateTime2
+  completeDate DateTime? @map("complete_date") @db.DateTime2
+  completeText String?   @map("complete_text") @db.VarChar(2048)
+  executor     String?   @db.UniqueIdentifier
+  lat          Decimal?  @db.Decimal(15, 8)
+  lon          Decimal?  @db.Decimal(15, 8)
+
+  @@id([id, licId, servId])
+  @@map("t_invoices")
+}
+
+/// id — binary(16) в формате 1С, не uniqueidentifier.
+model t_lics {
+  ownerId String @map("owner_id") @db.UniqueIdentifier
+  id      Bytes  @db.VarBinary(16)
+  code    String? @db.VarChar(16)
+
+  @@id([ownerId, id])
+  @@map("t_lics")
+}
+
+model t_logins {
+  id       String   @id @db.UniqueIdentifier
+  name     String?  @db.VarChar(150)
+  role     String?  @db.VarChar(64)
+  division String?  @db.VarChar(64)
+  password String?  @db.VarChar(128)
+  pincode  String?  @db.VarChar(8)
+  image    String?  @db.VarChar(Max)
+  token    String?  @db.UniqueIdentifier
+  lat      Decimal? @db.Decimal(15, 8)
+  lon      Decimal? @db.Decimal(15, 8)
+
+  @@map("t_logins")
+}
+
+model t_orders {
+  id           String    @db.UniqueIdentifier
+  licId        String    @map("lic_id") @db.UniqueIdentifier
+  number       String?   @db.NVarChar(50)
+  date         DateTime? @db.DateTime
+  division     String    @db.VarChar(128)
+  lic          String?   @db.NVarChar(50)
+  applicant    String?   @db.NVarChar(255)
+  phone        String?   @db.VarChar(128)
+  address      String?   @db.NVarChar(255)
+  executor     String    @db.UniqueIdentifier
+  status       String?   @db.UniqueIdentifier
+  description  String?   @db.NVarChar(2048)
+  comment      String?   @db.NVarChar(2048)
+  works        String?   @db.NVarChar(Max)
+  planDate     DateTime? @map("plan_date") @db.DateTime2
+  completeDate DateTime? @map("complete_date") @db.DateTime2
+  completeText String?   @map("complete_text") @db.VarChar(2048)
+  lat          Decimal?  @db.Decimal(15, 8)
+  lon          Decimal?  @db.Decimal(15, 8)
+  workType     String?   @map("work_type") @db.UniqueIdentifier
+  statusEx     String?   @map("status_ex") @db.VarChar(24)
+
+  @@id([id, licId])
+  @@map("t_orders")
+}
+
+model t_session {
+  id        String    @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  userId    String    @map("user_id") @db.UniqueIdentifier
+  openDate  DateTime  @map("open_date") @db.DateTime2
+  closeDate DateTime? @map("close_date") @db.DateTime2
+
+  @@index([userId], map: "IX_t_session_user_id")
+  @@map("t_session")
+}
+
+model t_tarifes {
+  period    DateTime @db.DateTime2
+  lic       String   @db.UniqueIdentifier
+  agree     String   @db.UniqueIdentifier
+  agreeName String?  @map("agree_name") @db.NVarChar(255)
+  equip     String   @db.UniqueIdentifier
+  equipName String?  @map("equip_name") @db.NVarChar(255)
+  works     String   @db.UniqueIdentifier
+  worksName String   @map("works_name") @db.NVarChar(255)
+  amount    Decimal? @db.Decimal(15, 2)
+  tarif     Decimal? @db.Decimal(15, 2)
+
+  @@id([lic, agree, equip, works])
+  @@map("t_tarifes")
+}
+
+model t_work_types {
+  id       String  @id @db.UniqueIdentifier
+  code     String? @db.NVarChar(50)
+  name     String? @db.NVarChar(255)
+  division String? @db.VarChar(128)
+
+  @@map("t_work_types")
+}
+
+model t_works {
+  id       String  @id @db.UniqueIdentifier
+  code     String? @db.NVarChar(50)
+  name     String  @db.NVarChar(255)
+  price    Decimal @db.Decimal(15, 2)
+  division String? @db.VarChar(128)
+
+  @@map("t_works")
+}
+
+model upd_invoices {
+  id     String @db.UniqueIdentifier
+  licId  String @map("lic_id") @db.UniqueIdentifier
+  servId String @map("serv_id") @db.UniqueIdentifier
+  action Int?
+
+  @@id([id, licId, servId])
+  @@map("upd_invoices")
+}
+
+model upd_orders {
+  id     String @db.UniqueIdentifier
+  licId  String @map("lic_id") @db.UniqueIdentifier
+  action Int?
+
+  @@id([id, licId])
+  @@map("upd_orders")
+}
