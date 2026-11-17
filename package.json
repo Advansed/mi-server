@@ -12,7 +12,9 @@
     "test": "node --test dist/guid.test.js"
   },
   "dependencies": {
+    "@prisma/adapter-mssql": "^6.19.0",
     "@prisma/client": "^6.19.0",
+    "mssql": "^11.0.2",
     "puppeteer": "^24.33.0",
     "socket.io": "^4.8.4"
   },

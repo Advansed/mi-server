@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { PrismaMssql } from "@prisma/adapter-mssql";
 import { Prisma, PrismaClient } from "@prisma/client";
 
 const ENV_KEYS = new Set(["DATABASE_URL", "EXCHANGE_KEY", "PORT"]);
@@ -31,22 +32,71 @@ function loadEnv(file: string) {
   }
 }
 
-function sqlUser(url: string | undefined) {
-  if (!url) return "";
-  const match = /(?:^|;)(?:user|username|uid)\s*=\s*([^;]*)/i.exec(url);
-  return match?.[1]?.trim() ?? "";
+function decodePart(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function sqlConfig(url: string | undefined) {
+  const fail = (message: string): never => {
+    console.error(message);
+    throw new Error(message);
+  };
+  if (!url || !url.startsWith("sqlserver://")) {
+    return fail("DATABASE_URL должен начинаться с sqlserver://");
+  }
+
+  const rest = url.slice("sqlserver://".length);
+  const splitAt = rest.indexOf(";");
+  const hostPart = splitAt === -1 ? rest : rest.slice(0, splitAt);
+  const paramPart = splitAt === -1 ? "" : rest.slice(splitAt + 1);
+  const params = new Map<string, string>();
+  for (const piece of paramPart.split(";")) {
+    if (!piece) continue;
+    const eq = piece.indexOf("=");
+    if (eq <= 0) continue;
+    params.set(piece.slice(0, eq).trim().toLowerCase(), piece.slice(eq + 1).trim());
+  }
+
+  const colon = hostPart.lastIndexOf(":");
+  const server = (colon === -1 ? hostPart : hostPart.slice(0, colon)).trim();
+  const port = colon === -1 ? 1433 : Number(hostPart.slice(colon + 1));
+  const database = params.get("database") || params.get("initial catalog") || "";
+  const user = decodePart(params.get("user") || params.get("username") || params.get("uid") || "");
+  const password = decodePart(params.get("password") || params.get("pwd") || "");
+  const encryptRaw = (params.get("encrypt") || "").toLowerCase();
+  const trustRaw = (params.get("trustservercertificate") || "").toLowerCase();
+  const encrypt = encryptRaw === "true" || encryptRaw === "yes" || encryptRaw === "1";
+  const trustServerCertificate = trustRaw !== "false" && trustRaw !== "no" && trustRaw !== "0";
+
+  if (!server || !database) return fail("В DATABASE_URL нет хоста или базы SQL Server.");
+  if (!Number.isInteger(port) || port <= 0) return fail("В DATABASE_URL указан неверный порт SQL Server.");
+  if (!user || !password) {
+    return fail("В DATABASE_URL нет пользователя или пароля SQL Server. Символ @ в пароле можно писать как %40.");
+  }
+
+  return { server, port, database, user, password, encrypt, trustServerCertificate };
 }
 
 loadEnv(join(__dirname, "..", ".env"));
 
-const databaseUrl = process.env.DATABASE_URL;
-const sqlLogin = sqlUser(databaseUrl);
-if (!sqlLogin) {
-  const message =
-    "В DATABASE_URL нет пользователя SQL Server. Проверьте .env рядом с приложением: user=..., пароль с символом @ записывается как %40.";
-  console.error(message);
-  throw new Error(message);
-}
+const sql = sqlConfig(process.env.DATABASE_URL);
+console.log(`SQL Server ${sql.server}:${sql.port} ${sql.database} user ${sql.user}`);
 
-export const prisma = new PrismaClient();
+const adapter = new PrismaMssql({
+  server: sql.server,
+  port: sql.port,
+  database: sql.database,
+  user: sql.user,
+  password: sql.password,
+  options: {
+    encrypt: sql.encrypt,
+    trustServerCertificate: sql.trustServerCertificate,
+  },
+});
+
+export const prisma = new PrismaClient({ adapter });
 export type Tx = Prisma.TransactionClient;
