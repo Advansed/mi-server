@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { describeDbError } from "./db";
 import { toJsonValue } from "./json";
 import { dispatch } from "./routes";
 import { attach } from "./socket";
@@ -79,7 +80,7 @@ async function onRequest(req: IncomingMessage, res: ServerResponse) {
     const status = message === "payload too large" ? 413 : err instanceof SyntaxError || message.includes("JSON") ? 400 : 500;
     const body = {
       success: false,
-      message: status === 400 ? "Некорректный JSON" : message,
+      message: status === 400 ? "Некорректный JSON" : status === 413 ? message : describeDbError(err),
     };
     console.error("[response]", status, url.pathname, logText(body));
     send(res, status, body);

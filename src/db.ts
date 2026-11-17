@@ -65,8 +65,11 @@ function sqlConfig(url: string | undefined) {
   const server = (colon === -1 ? hostPart : hostPart.slice(0, colon)).trim();
   const port = colon === -1 ? 1433 : Number(hostPart.slice(colon + 1));
   const database = params.get("database") || params.get("initial catalog") || "";
-  const user = process.env.DB_USER || decodePart(params.get("user") || params.get("username") || params.get("uid") || "");
-  const password = process.env.DB_PASSWORD || decodePart(params.get("password") || params.get("pwd") || "");
+  const userFromEnv = process.env.DB_USER ?? "";
+  const passwordFromEnv = process.env.DB_PASSWORD ?? "";
+  const user = userFromEnv || decodePart(params.get("user") || params.get("username") || params.get("uid") || "");
+  const password = passwordFromEnv || decodePart(params.get("password") || params.get("pwd") || "");
+  const passwordSource = passwordFromEnv ? "DB_PASSWORD" : "DATABASE_URL";
   const encryptRaw = (params.get("encrypt") || "").toLowerCase();
   const trustRaw = (params.get("trustservercertificate") || "").toLowerCase();
   const encrypt = encryptRaw === "true" || encryptRaw === "yes" || encryptRaw === "1";
@@ -78,11 +81,19 @@ function sqlConfig(url: string | undefined) {
     return fail("Нет пользователя или пароля SQL Server. Задайте DB_USER и DB_PASSWORD либо user и password в DATABASE_URL.");
   }
 
-  return { server, port, database, user, password, encrypt, trustServerCertificate };
+  return { server, port, database, user, password, passwordSource, encrypt, trustServerCertificate };
 }
 
 function errorText(err: unknown) {
   return err instanceof Error ? err.message : String(err);
+}
+
+export function describeDbError(err: unknown) {
+  const detail = driverDetail(err);
+  if (detail.includes("Authentication failed") || detail.includes("Login failed") || detail.includes("18456")) {
+    return `SQL Server не принял логин. ${detail}`;
+  }
+  return detail;
 }
 
 function driverDetail(err: unknown) {
@@ -95,15 +106,19 @@ function driverDetail(err: unknown) {
       number?: unknown;
       code?: unknown;
       message?: unknown;
+      originalMessage?: unknown;
       originalError?: unknown;
       cause?: unknown;
+      driverAdapterError?: unknown;
+      meta?: { driverAdapterError?: unknown };
     };
     const bits: string[] = [];
     if (record.number != null) bits.push(`number=${String(record.number)}`);
     if (record.code != null && String(record.code) !== String(record.number)) bits.push(`code=${String(record.code)}`);
-    if (typeof record.message === "string" && record.message) bits.push(record.message);
+    const text = typeof record.originalMessage === "string" && record.originalMessage ? record.originalMessage : record.message;
+    if (typeof text === "string" && text && !text.includes("Invalid `")) bits.push(text);
     if (bits.length) parts.push(bits.join(" "));
-    current = record.originalError ?? record.cause;
+    current = record.originalError ?? record.cause ?? record.driverAdapterError ?? record.meta?.driverAdapterError;
   }
   return parts.join(" | ") || errorText(err);
 }
@@ -120,6 +135,8 @@ const adapter = new PrismaMssql(
     database: sql.database,
     user: sql.user,
     password: sql.password,
+    encrypt: sql.encrypt,
+    trustServerCertificate: sql.trustServerCertificate,
     options: {
       encrypt: sql.encrypt,
       trustServerCertificate: sql.trustServerCertificate,
@@ -138,7 +155,7 @@ const adapter = new PrismaMssql(
 export const prisma = new PrismaClient({ adapter });
 
 console.log(
-  `[pool] connecting ${poolLabel} passwordLength=${sql.password.length} passwordHasAt=${sql.password.includes("@")}`,
+  `[pool] connecting ${poolLabel} passwordSource=${sql.passwordSource} passwordLength=${sql.password.length} passwordHasAt=${sql.password.includes("@")}`,
 );
 void prisma.$connect().then(
   () => console.log(`[pool] connected ${poolLabel}`),
