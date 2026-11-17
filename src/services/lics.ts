@@ -51,11 +51,12 @@ export async function addLic(params: Record<string, unknown>) {
   const id = await licIdByCode(lc);
   if (!id) return { success: false, message: "Лицевой счет не найден" };
 
-  const exists = await prisma.t_lics.findFirst({ where: { id, ownerId: user.id } });
+  const bytes = Uint8Array.from(id);
+  const exists = await prisma.t_lics.findFirst({ where: { id: bytes, ownerId: user.id } });
   if (exists) return { success: false, message: "Лицевой счет уже привязан к этому аккаунту" };
 
   try {
-    await prisma.t_lics.create({ data: { id, ownerId: user.id, code: lc } });
+    await prisma.t_lics.create({ data: { id: bytes, ownerId: user.id, code: lc } });
     return { success: true, message: "Лицевой счет успешно добавлен" };
   } catch {
     return { success: false, message: "Ошибка добавления: лицевой счет уже существует или заблокирован" };

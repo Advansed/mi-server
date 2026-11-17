@@ -1,14 +1,15 @@
 {
   "name": "mi-server",
   "version": "1.0.1",
-  "description": "Bun server with Prisma for mi-data",
-  "type": "module",
+  "description": "Node server with Prisma for mi-data",
   "scripts": {
-    "start": "bun src/index.ts",
-    "dev": "bun --watch src/index.ts",
+    "build": "tsc",
+    "start": "node --env-file=.env dist/index.js",
+    "dev": "node --watch --env-file=.env dist/index.js",
+    "dev:tsc": "tsc --watch",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
-    "test": "bun test"
+    "test": "node --test dist/guid.test.js"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -16,6 +17,8 @@
     "socket.io": "^4.8.4"
   },
   "devDependencies": {
-    "prisma": "^6.19.0"
+    "@types/node": "^24.10.1",
+    "prisma": "^6.19.0",
+    "typescript": "^5.9.3"
   }
 }

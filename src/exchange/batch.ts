@@ -53,7 +53,7 @@ function failed(err: unknown) {
 }
 
 export async function insOrders(body: unknown) {
-  const rows = batchRows(body).flatMap((row) => {
+  const rows = batchRows(body).flatMap((row): Row[] => {
     const id = guidOf(row.id);
     const licId = guidOf(row.lic_id);
     if (!id || !licId) return [];

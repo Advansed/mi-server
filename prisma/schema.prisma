@@ -95,12 +95,12 @@ model t_invoices {
 }
 
 /// id — binary(16) в формате 1С, не uniqueidentifier.
+/// Prisma 6 не принимает Bytes в @@id. Ключ клиента — ownerId, в таблице ключ (owner_id, id).
 model t_lics {
-  ownerId String @map("owner_id") @db.UniqueIdentifier
-  id      Bytes  @db.VarBinary(16)
+  ownerId String  @id @map("owner_id") @db.UniqueIdentifier
+  id      Bytes   @db.VarBinary(16)
   code    String? @db.VarChar(16)
 
-  @@id([ownerId, id])
   @@map("t_lics")
 }
 
