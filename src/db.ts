@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { PrismaMssql } from "@prisma/adapter-mssql";
 import { Prisma, PrismaClient } from "@prisma/client";
 
-const ENV_KEYS = new Set(["DATABASE_URL", "EXCHANGE_KEY", "PORT"]);
+const ENV_KEYS = new Set(["DATABASE_URL", "EXCHANGE_KEY", "PORT", "DB_USER", "DB_PASSWORD"]);
 
 function loadEnv(file: string) {
   let text: string;
@@ -65,8 +65,8 @@ function sqlConfig(url: string | undefined) {
   const server = (colon === -1 ? hostPart : hostPart.slice(0, colon)).trim();
   const port = colon === -1 ? 1433 : Number(hostPart.slice(colon + 1));
   const database = params.get("database") || params.get("initial catalog") || "";
-  const user = decodePart(params.get("user") || params.get("username") || params.get("uid") || "");
-  const password = decodePart(params.get("password") || params.get("pwd") || "");
+  const user = process.env.DB_USER || decodePart(params.get("user") || params.get("username") || params.get("uid") || "");
+  const password = process.env.DB_PASSWORD || decodePart(params.get("password") || params.get("pwd") || "");
   const encryptRaw = (params.get("encrypt") || "").toLowerCase();
   const trustRaw = (params.get("trustservercertificate") || "").toLowerCase();
   const encrypt = encryptRaw === "true" || encryptRaw === "yes" || encryptRaw === "1";
@@ -75,7 +75,7 @@ function sqlConfig(url: string | undefined) {
   if (!server || !database) return fail("В DATABASE_URL нет хоста или базы SQL Server.");
   if (!Number.isInteger(port) || port <= 0) return fail("В DATABASE_URL указан неверный порт SQL Server.");
   if (!user || !password) {
-    return fail("В DATABASE_URL нет пользователя или пароля SQL Server. Символ @ в пароле можно писать как %40.");
+    return fail("Нет пользователя или пароля SQL Server. Задайте DB_USER и DB_PASSWORD либо user и password в DATABASE_URL.");
   }
 
   return { server, port, database, user, password, encrypt, trustServerCertificate };
@@ -83,6 +83,29 @@ function sqlConfig(url: string | undefined) {
 
 function errorText(err: unknown) {
   return err instanceof Error ? err.message : String(err);
+}
+
+function driverDetail(err: unknown) {
+  const parts: string[] = [];
+  const seen = new Set<unknown>();
+  let current: unknown = err;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const record = current as {
+      number?: unknown;
+      code?: unknown;
+      message?: unknown;
+      originalError?: unknown;
+      cause?: unknown;
+    };
+    const bits: string[] = [];
+    if (record.number != null) bits.push(`number=${String(record.number)}`);
+    if (record.code != null && String(record.code) !== String(record.number)) bits.push(`code=${String(record.code)}`);
+    if (typeof record.message === "string" && record.message) bits.push(record.message);
+    if (bits.length) parts.push(bits.join(" "));
+    current = record.originalError ?? record.cause;
+  }
+  return parts.join(" | ") || errorText(err);
 }
 
 loadEnv(join(__dirname, "..", ".env"));
@@ -104,19 +127,21 @@ const adapter = new PrismaMssql(
   },
   {
     onPoolError(err) {
-      console.error(`[pool] error ${poolLabel}: ${errorText(err)}`);
+      console.error(`[pool] error ${poolLabel}: ${driverDetail(err)}`);
     },
     onConnectionError(err) {
-      console.error(`[pool] connection ${poolLabel}: ${errorText(err)}`);
+      console.error(`[pool] connection ${poolLabel}: ${driverDetail(err)}`);
     },
   },
 );
 
 export const prisma = new PrismaClient({ adapter });
 
-console.log(`[pool] connecting ${poolLabel}`);
+console.log(
+  `[pool] connecting ${poolLabel} passwordLength=${sql.password.length} passwordHasAt=${sql.password.includes("@")}`,
+);
 void prisma.$connect().then(
   () => console.log(`[pool] connected ${poolLabel}`),
-  (err: unknown) => console.error(`[pool] connect failed ${poolLabel}: ${errorText(err)}`),
+  (err: unknown) => console.error(`[pool] connect failed ${poolLabel}: ${driverDetail(err)}`),
 );
 export type Tx = Prisma.TransactionClient;
