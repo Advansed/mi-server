@@ -4,10 +4,12 @@
   "description": "Node server with Prisma for mi-data",
   "scripts": {
     "build": "tsc",
+    "prestart": "node scripts/drop-esm-proxy-agents.js",
     "start": "node --env-file=.env dist/index.js",
+    "predev": "node scripts/drop-esm-proxy-agents.js",
     "dev": "node --watch --env-file=.env dist/index.js",
     "dev:tsc": "tsc --watch",
-    "postinstall": "prisma generate",
+    "postinstall": "node scripts/drop-esm-proxy-agents.js && prisma generate",
     "db:generate": "prisma generate",
     "test": "node --test dist/guid.test.js"
   },
