@@ -6,12 +6,20 @@ export async function login(params: Record<string, unknown>) {
   const name = typeof params.login === "string" ? params.login : null;
   const password = typeof params.password === "string" ? params.password : null;
   if (!name || !password) {
+    console.log("[auth] login rejected: пустой логин или пароль");
     return { success: false, message: "Не заполнен логин или пароль" };
   }
 
+  console.log(`[auth] login user=${name}`);
   const user = await prisma.t_logins.findFirst({ where: { name } });
-  if (!user) return { success: false, message: "Пользователь не найден" };
-  if ((user.password ?? "") !== password) return { success: false, message: "Пароль не верный" };
+  if (!user) {
+    console.log(`[auth] login failed user=${name}: не найден`);
+    return { success: false, message: "Пользователь не найден" };
+  }
+  if ((user.password ?? "") !== password) {
+    console.log(`[auth] login failed user=${name}: пароль`);
+    return { success: false, message: "Пароль не верный" };
+  }
 
   const token = randomUUID();
   const updated = await prisma.t_logins.update({
@@ -19,6 +27,7 @@ export async function login(params: Record<string, unknown>) {
     data: { token },
   });
 
+  console.log(`[auth] login ok user=${updated.name ?? ""} role=${updated.role ?? ""}`);
   return {
     success: true,
     data: {

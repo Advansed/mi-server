@@ -70,6 +70,7 @@ async function onRequest(req: IncomingMessage, res: ServerResponse) {
     send(res, reply.status, reply.body, reply.text);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    console.error("[request]", url.pathname, message);
     if (message === "payload too large") {
       send(res, 413, { success: false, message });
       return;

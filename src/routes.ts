@@ -43,8 +43,10 @@ export async function dispatch(
 
   if (route.startsWith("/upd_") || route.startsWith("/ex_")) {
     if (!exchangeKeyOk(exchangeHeader, params)) {
+      console.log(`[auth] exchange rejected ${route}`);
       return json({ error: true, message: "Неверный ключ обмена" }, 401);
     }
+    console.log(`[auth] exchange ok ${route}`);
     const body = await dispatchExchange(route, params);
     if (route === "/upd_orders" && body && typeof body === "object" && (body as { error?: boolean }).error !== true) {
       void publishInvoices();

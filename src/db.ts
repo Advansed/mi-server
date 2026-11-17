@@ -81,22 +81,42 @@ function sqlConfig(url: string | undefined) {
   return { server, port, database, user, password, encrypt, trustServerCertificate };
 }
 
+function errorText(err: unknown) {
+  return err instanceof Error ? err.message : String(err);
+}
+
 loadEnv(join(__dirname, "..", ".env"));
 
 const sql = sqlConfig(process.env.DATABASE_URL);
-console.log(`SQL Server ${sql.server}:${sql.port} ${sql.database} user ${sql.user}`);
+const poolLabel = `${sql.server}:${sql.port} ${sql.database} user ${sql.user}`;
 
-const adapter = new PrismaMssql({
-  server: sql.server,
-  port: sql.port,
-  database: sql.database,
-  user: sql.user,
-  password: sql.password,
-  options: {
-    encrypt: sql.encrypt,
-    trustServerCertificate: sql.trustServerCertificate,
+const adapter = new PrismaMssql(
+  {
+    server: sql.server,
+    port: sql.port,
+    database: sql.database,
+    user: sql.user,
+    password: sql.password,
+    options: {
+      encrypt: sql.encrypt,
+      trustServerCertificate: sql.trustServerCertificate,
+    },
   },
-});
+  {
+    onPoolError(err) {
+      console.error(`[pool] error ${poolLabel}: ${errorText(err)}`);
+    },
+    onConnectionError(err) {
+      console.error(`[pool] connection ${poolLabel}: ${errorText(err)}`);
+    },
+  },
+);
 
 export const prisma = new PrismaClient({ adapter });
+
+console.log(`[pool] connecting ${poolLabel}`);
+void prisma.$connect().then(
+  () => console.log(`[pool] connected ${poolLabel}`),
+  (err: unknown) => console.error(`[pool] connect failed ${poolLabel}: ${errorText(err)}`),
+);
 export type Tx = Prisma.TransactionClient;
