@@ -44,6 +44,11 @@ function queryParams(url: URL) {
   return params;
 }
 
+function logText(value: unknown) {
+  const text = typeof value === "string" ? value : JSON.stringify(toJsonValue(value));
+  return text.length > 4000 ? `${text.slice(0, 4000)}… (${text.length})` : text;
+}
+
 async function onRequest(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url || "/", "http://localhost");
   if (url.pathname.startsWith("/socket.io")) return;
@@ -59,27 +64,25 @@ async function onRequest(req: IncomingMessage, res: ServerResponse) {
     return;
   }
 
-  console.log("route", url.pathname);
   try {
     const params =
       req.method === "GET" ? queryParams(url) : ((await readBody(req)) as Record<string, unknown>);
     const record = params && typeof params === "object" && !Array.isArray(params) ? params : { data: params };
+    console.log("[request]", req.method, url.pathname, logText(record));
     const header = req.headers["x-exchange-key"];
     const exchangeHeader = Array.isArray(header) ? header[0] : header;
     const reply = await dispatch(url.pathname, record, exchangeHeader);
+    console.log("[response]", reply.status, url.pathname, logText(reply.text ?? reply.body));
     send(res, reply.status, reply.body, reply.text);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[request]", url.pathname, message);
-    if (message === "payload too large") {
-      send(res, 413, { success: false, message });
-      return;
-    }
-    const invalidJson = err instanceof SyntaxError || message.includes("JSON");
-    send(res, invalidJson ? 400 : 500, {
+    const status = message === "payload too large" ? 413 : err instanceof SyntaxError || message.includes("JSON") ? 400 : 500;
+    const body = {
       success: false,
-      message: invalidJson ? "Некорректный JSON" : message,
-    });
+      message: status === 400 ? "Некорректный JSON" : message,
+    };
+    console.error("[response]", status, url.pathname, logText(body));
+    send(res, status, body);
   }
 }
 
