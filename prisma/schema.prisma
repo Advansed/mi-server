@@ -146,6 +146,20 @@ model t_orders {
   @@map("t_orders")
 }
 
+model t_payments {
+  id        String   @id @db.UniqueIdentifier
+  invoiceId String   @map("invoice_id") @db.UniqueIdentifier
+  userId    String   @map("user_id") @db.UniqueIdentifier
+  amount    Decimal  @db.Decimal(15, 2)
+  orderId   String   @map("order_id") @db.NVarChar(128)
+  payload   String   @db.NVarChar(Max)
+  formUrl   String?  @map("form_url") @db.NVarChar(Max)
+  createdAt DateTime @default(now()) @map("created_at") @db.DateTime2
+
+  @@index([invoiceId], map: "IX_t_payments_invoice_id")
+  @@map("t_payments")
+}
+
 model t_session {
   id        String    @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
   userId    String    @map("user_id") @db.UniqueIdentifier

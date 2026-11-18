@@ -3,7 +3,18 @@ import { join } from "node:path";
 import { PrismaMssql } from "@prisma/adapter-mssql";
 import { Prisma, PrismaClient } from "@prisma/client";
 
-const ENV_KEYS = new Set(["DATABASE_URL", "EXCHANGE_KEY", "PORT", "DB_USER", "DB_PASSWORD"]);
+const ENV_KEYS = new Set([
+  "DATABASE_URL",
+  "EXCHANGE_KEY",
+  "PORT",
+  "DB_USER",
+  "DB_PASSWORD",
+  "VTB_URL",
+  "VTB_USER",
+  "VTB_PASS",
+  "VTB_RETURN_URL",
+  "VTB_FAIL_URL",
+]);
 
 function loadEnv(file: string) {
   let text: string;
