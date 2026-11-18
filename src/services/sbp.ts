@@ -5,18 +5,21 @@ import { isGuid } from "../guid";
 import { asNumber } from "../json";
 
 const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 3;
+const CREATE_LIMIT = 3;
+const STATUS_LIMIT = 10;
+const FINAL_STATUS = new Set([2, 3, 4, 6]);
 const hits = new Map<string, number[]>();
 
-function allow(userId: string) {
+function allow(userId: string, limit: number) {
   const now = Date.now();
-  const recent = (hits.get(userId) ?? []).filter((time) => now - time < WINDOW_MS);
-  if (recent.length >= MAX_REQUESTS) {
-    hits.set(userId, recent);
+  const key = `${userId}:${limit}`;
+  const recent = (hits.get(key) ?? []).filter((time) => now - time < WINDOW_MS);
+  if (recent.length >= limit) {
+    hits.set(key, recent);
     return false;
   }
   recent.push(now);
-  hits.set(userId, recent);
+  hits.set(key, recent);
   return true;
 }
 
@@ -32,7 +35,13 @@ function vtbConfig() {
   return { baseUrl, userName, password, returnUrl, failUrl };
 }
 
-async function vtbPost(path: string, params: Record<string, string | number>) {
+function vtbMessage(data: Record<string, unknown>, fallback: string) {
+  const action = typeof data.actionCodeDescription === "string" ? data.actionCodeDescription.trim() : "";
+  const message = typeof data.errorMessage === "string" ? data.errorMessage.trim() : "";
+  return action || message || fallback;
+}
+
+async function vtbCall(path: string, params: Record<string, string | number>) {
   const { baseUrl, userName, password } = vtbConfig();
   const body = new URLSearchParams({ userName, password });
   for (const [key, value] of Object.entries(params)) body.set(key, String(value));
@@ -44,14 +53,19 @@ async function vtbPost(path: string, params: Record<string, string | number>) {
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error(`ВТБ ответил HTTP ${response.status}`);
+  return (await response.json()) as Record<string, unknown>;
+}
 
-  const data = (await response.json()) as Record<string, unknown>;
+async function vtbPost(path: string, params: Record<string, string | number>) {
+  const data = await vtbCall(path, params);
   const errorCode = data.errorCode;
-  if (errorCode != null && String(errorCode) !== "0") {
-    const message = typeof data.errorMessage === "string" && data.errorMessage ? data.errorMessage : `ВТБ: код ${errorCode}`;
-    throw new Error(message);
-  }
+  if (errorCode != null && String(errorCode) !== "0") throw new Error(vtbMessage(data, `ВТБ: код ${errorCode}`));
   return data;
+}
+
+function paymentView(row: { id: string; orderId: string; amount: { toNumber?: () => number } | number; status: number | null; error: string | null }) {
+  const amount = typeof row.amount === "number" ? row.amount : row.amount.toNumber?.() ?? Number(row.amount);
+  return { id: row.id, orderId: row.orderId, amount, status: row.status, error: row.error };
 }
 
 export async function createSbpPayment(params: Record<string, unknown>) {
@@ -68,7 +82,7 @@ export async function createSbpPayment(params: Record<string, unknown>) {
   const order = await prisma.t_orders.findFirst({ where: { id: invoiceId }, select: { id: true } });
   if (!order) return { success: false, message: "Заявка не найдена" };
 
-  if (!allow(user.id)) return { success: false, message: "Превышен лимит на создание оплат" };
+  if (!allow(user.id, CREATE_LIMIT)) return { success: false, message: "Превышен лимит на создание оплат" };
 
   const description =
     typeof params.description === "string" && params.description.trim() ? params.description.trim() : "Оплата работ";
@@ -95,7 +109,7 @@ export async function createSbpPayment(params: Record<string, unknown>) {
     if (!payload) throw new Error("ВТБ не вернул ссылку СБП");
 
     await prisma.t_payments.create({
-      data: { id, invoiceId, userId: user.id, amount, orderId, payload, formUrl },
+      data: { id, invoiceId, userId: user.id, amount, orderId, payload, formUrl, status: 0, error: null },
     });
     console.log(`[sbp] invoice=${invoiceId} user=${user.name ?? ""} amount=${amount} order=${orderId}`);
     return { success: true, data: { orderId, payload, renderedQr, formUrl } };
@@ -104,4 +118,66 @@ export async function createSbpPayment(params: Record<string, unknown>) {
     console.log(`[sbp] invoice=${invoiceId} failed ${message}`);
     return { success: false, message };
   }
+}
+
+export async function checkSbpStatus(params: Record<string, unknown>) {
+  const user = await findLogin(params.token);
+  if (!user) return { success: false, message: "Неверный токен" };
+
+  const invoiceId = isGuid(params.invoice_id) ? params.invoice_id.trim() : "";
+  if (!invoiceId) return { success: false, message: "Не указана заявка" };
+
+  const rows = await prisma.t_payments.findMany({
+    where: { invoiceId },
+    orderBy: { createdAt: "desc" },
+  });
+  if (rows.length === 0) return { success: false, message: "Оплата не найдена" };
+
+  const pending = rows.filter((row) => row.status == null || !FINAL_STATUS.has(row.status));
+  if (pending.length === 0) return { success: true, data: rows.map(paymentView) };
+  if (!allow(user.id, STATUS_LIMIT)) return { success: false, message: "Превышен лимит на проверку оплат" };
+
+  for (const row of pending) {
+    try {
+      const data = await vtbCall("getOrderStatusExtended.do", { orderId: row.orderId });
+      const errorCode = data.errorCode;
+      if (errorCode != null && String(errorCode) !== "0") {
+        await prisma.t_payments.update({
+          where: { id: row.id },
+          data: { error: vtbMessage(data, `ВТБ: код ${errorCode}`), updatedAt: new Date() },
+        });
+        continue;
+      }
+      const status = asNumber(data.orderStatus);
+      if (status == null) {
+        await prisma.t_payments.update({
+          where: { id: row.id },
+          data: { error: "ВТБ не вернул статус заказа", updatedAt: new Date() },
+        });
+        continue;
+      }
+      const failed = status === 3 || status === 6;
+      await prisma.t_payments.update({
+        where: { id: row.id },
+        data: {
+          status,
+          error: failed ? vtbMessage(data, status === 6 ? "Оплата отклонена" : "Оплата отменена") : null,
+          updatedAt: new Date(),
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.log(`[sbp] status invoice=${invoiceId} order=${row.orderId} failed ${message}`);
+      await prisma.t_payments.update({
+        where: { id: row.id },
+        data: { error: message, updatedAt: new Date() },
+      });
+    }
+  }
+
+  const fresh = await prisma.t_payments.findMany({
+    where: { invoiceId },
+    orderBy: { createdAt: "desc" },
+  });
+  return { success: true, data: fresh.map(paymentView) };
 }

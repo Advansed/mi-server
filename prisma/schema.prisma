@@ -154,6 +154,10 @@ model t_payments {
   orderId   String   @map("order_id") @db.NVarChar(128)
   payload   String   @db.NVarChar(Max)
   formUrl   String?  @map("form_url") @db.NVarChar(Max)
+  posted    Int?
+  status    Int?
+  error     String?  @db.NVarChar(Max)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime2
   createdAt DateTime @default(now()) @map("created_at") @db.DateTime2
 
   @@index([invoiceId], map: "IX_t_payments_invoice_id")

@@ -5,7 +5,7 @@ import { getAct, getActs, setAct } from "./services/acts";
 import { getWorks, getWorkTypes, listPlots } from "./services/catalog";
 import { addLic, delLic, getLic, getLics } from "./services/lics";
 import { listInvoices, listMpInvoices, setInvAddress, setInvLic, setInvWorker, setInvoice, setMpInv } from "./services/orders";
-import { createSbpPayment } from "./services/sbp";
+import { checkSbpStatus, createSbpPayment } from "./services/sbp";
 import { closeSession, getSession, login, openSession } from "./services/session";
 import { listWorkers, setLocation } from "./services/workers";
 import { findLics } from "./sql/vesta";
@@ -142,6 +142,8 @@ async function dispatchApp(route: string, params: Record<string, unknown>) {
       return setLocation(params);
     case "/mp_sbp":
       return createSbpPayment(params);
+    case "/mp_sbp_status":
+      return checkSbpStatus(params);
     case "/mp_get_acts":
       return getActs(params);
     default:
