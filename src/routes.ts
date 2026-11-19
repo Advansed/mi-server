@@ -1,5 +1,5 @@
 import { findLogin } from "./auth";
-import { exActs, exInvoices, insAgreements, insEquipments, insLogins, insOrders, insTarifes, insWorks, insWorkTypes } from "./exchange/batch";
+import { exActs, exInvoices, insAgreements, insEquipments, insInvoices, insLogins, insOrders, insTarifes, insWorks, insWorkTypes } from "./exchange/batch";
 import { renderPdf } from "./pdf";
 import { getAct, getActs, setAct } from "./services/acts";
 import { getWorks, getWorkTypes, listPlots } from "./services/catalog";
@@ -66,6 +66,8 @@ async function dispatchExchange(route: string, params: Record<string, unknown>) 
   switch (route) {
     case "/upd_orders":
       return insOrders(params);
+    case "/upd_invoices":
+      return insInvoices(params);
     case "/upd_tarifes":
       return insTarifes(params);
     case "/upd_equipments":

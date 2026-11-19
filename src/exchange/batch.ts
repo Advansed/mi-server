@@ -103,6 +103,48 @@ export async function insOrders(body: unknown) {
   }
 }
 
+function textOf(value: unknown) {
+  return value == null ? null : String(value);
+}
+
+export async function insInvoices(body: unknown) {
+  const rows = batchRows(body).flatMap((row): Row[] => {
+    const id = guidOf(row.id);
+    const licId = guidOf(row.lic_id);
+    if (!id || !licId) return [];
+    return [{ ...row, id, lic_id: licId }];
+  });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const row of rows) {
+        const id = String(row.id);
+        const licId = String(row.lic_id);
+        const data = {
+          number: textOf(row.number),
+          date: asDate(row.date),
+          division: textOf(row.division),
+          lic: textOf(row.lic),
+          applicant: textOf(row.applicant),
+          status: textOf(row.status),
+          address: textOf(row.address),
+          description: textOf(row.description),
+          planDate: asDate(row.plan_date),
+        };
+        const existing = await tx.t_invoices.findUnique({ where: { id_licId: { id, licId } } });
+        if (!existing) {
+          await tx.t_invoices.create({ data: { id, licId, ...data } });
+        } else {
+          await tx.t_invoices.update({ where: { id_licId: { id, licId } }, data });
+        }
+      }
+    });
+    return saved();
+  } catch (err) {
+    return failed(err);
+  }
+}
+
 export async function insLogins(body: unknown) {
   const rows = batchRows(body).filter((row) => guidOf(row.id));
   if (rows.length === 0) return { error: true, message: "Нет данных для обработки" };

@@ -71,26 +71,19 @@ model t_equipments {
 }
 
 model t_invoices {
-  id           String    @db.UniqueIdentifier
-  licId        String    @map("lic_id") @db.UniqueIdentifier
-  servId       String    @map("serv_id") @db.UniqueIdentifier
-  number       String?   @db.VarChar(13)
-  date         DateTime? @db.DateTime
-  applicant    String?   @db.VarChar(150)
-  phone        String?   @db.VarChar(128)
-  address      String?   @db.VarChar(256)
-  lic          String    @db.VarChar(16)
-  service      String?   @db.VarChar(2048)
-  status       String?   @db.VarChar(24)
-  division     String?   @db.VarChar(64)
-  planDate     DateTime? @map("plan_date") @db.DateTime2
-  completeDate DateTime? @map("complete_date") @db.DateTime2
-  completeText String?   @map("complete_text") @db.VarChar(2048)
-  executor     String?   @db.UniqueIdentifier
-  lat          Decimal?  @db.Decimal(15, 8)
-  lon          Decimal?  @db.Decimal(15, 8)
+  id          String    @db.UniqueIdentifier
+  licId       String    @map("lic_id") @db.UniqueIdentifier
+  number      String?   @db.VarChar(13)
+  date        DateTime? @db.DateTime
+  division    String?   @db.VarChar(64)
+  lic         String?   @db.VarChar(16)
+  applicant   String?   @db.VarChar(150)
+  status      String?   @db.VarChar(24)
+  address     String?   @db.VarChar(256)
+  description String?   @db.NVarChar(2048)
+  planDate    DateTime? @map("plan_date") @db.DateTime2
 
-  @@id([id, licId, servId])
+  @@id([id, licId])
   @@map("t_invoices")
 }
 
