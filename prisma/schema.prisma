@@ -141,6 +141,7 @@ model t_orders {
   lon          Decimal?  @db.Decimal(15, 8)
   workType     String?   @map("work_type") @db.UniqueIdentifier
   statusEx     String?   @map("status_ex") @db.VarChar(24)
+  parentId     String?   @map("parent_id") @db.UniqueIdentifier
 
   @@id([id, licId])
   @@map("t_orders")

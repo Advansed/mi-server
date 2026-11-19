@@ -87,6 +87,7 @@ export async function insOrders(body: unknown) {
           completeDate: asDate(row.complete_date),
           works: row.works == null ? null : typeof row.works === "string" ? row.works : JSON.stringify(row.works),
           workType: guidOf(row.work_type),
+          parentId: guidOf(row.parent_id),
         };
         const existing = await tx.t_orders.findUnique({ where: { id_licId: { id, licId } } });
         if (!existing) {
@@ -353,6 +354,7 @@ export async function exInvoices(body: unknown) {
       works: parseJson(row.works),
       plan_date: row.planDate,
       complete_date: row.completeDate,
+      parent_id: row.parentId,
     })),
   };
 }
