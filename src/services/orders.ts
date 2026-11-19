@@ -23,7 +23,7 @@ function orderView(row: {
   statusEx: string | null;
   planDate: Date | null;
   completeDate: Date | null;
-  parentId: string | null;
+  parent_id: string | null;
 }) {
   return {
     id: row.id,
@@ -42,7 +42,7 @@ function orderView(row: {
     status: row.statusEx,
     plan_date: row.planDate,
     complete_date: row.completeDate,
-    parent_id: row.parentId,
+    parent_id: row.parent_id,
   };
 }
 
@@ -86,7 +86,7 @@ export async function listMpInvoices(params: Record<string, unknown>) {
       complete_date: row.completeDate,
       comment: row.comment,
       works: parseJson(row.works),
-      parent_id: row.parentId,
+      parent_id: row.parent_id,
     })),
   };
 }
