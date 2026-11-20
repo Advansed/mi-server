@@ -49,10 +49,10 @@ function orderView(row: {
 export async function listInvoices(token: string) {
   if (!isGuid(token)) return { success: false, message: "Не верный токен" };
   const user = await findLogin(token);
-  if (!user?.division) return { success: false, message: "Токен не найден или невалиден" };
+  if (!user) return { success: false, message: "Токен не найден или невалиден" };
 
   const rows = await prisma.t_orders.findMany({
-    where: { division: { contains: user.division } },
+    where: user.division ? { division: { contains: user.division } } : {},
     orderBy: { date: "desc" },
     take: 50,
   });
@@ -108,14 +108,14 @@ async function nextInvNumber(tx: Tx) {
 export async function setInvoice(params: Record<string, unknown>) {
   if (params.token == null) return { success: false, message: "Не верный токен" };
   const user = await findLogin(params.token);
-  if (!user?.division) return { success: false, message: "Токен не найден или невалиден" };
+  if (!user) return { success: false, message: "Токен не найден или невалиден" };
   if (!isGuid(params.id) || !isGuid(params.lic_id)) {
     return { success: false, message: "Нет данных для обработки" };
   }
 
   const id = params.id.trim();
   const licId = params.lic_id.trim();
-  const division = user.division;
+  const division = user.division || "";
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -136,7 +136,7 @@ export async function setInvoice(params: Record<string, unknown>) {
             works: works == null ? existing.works : works,
             workType: params.work_type_id == null ? existing.workType : String(params.work_type_id),
             planDate: params.plan_date == null ? existing.planDate : asDate(params.plan_date),
-            division,
+            division: user.division || existing.division,
             statusEx: params.status == null ? existing.statusEx : String(params.status),
             executor: params.executor == null ? existing.executor : String(params.executor),
           },

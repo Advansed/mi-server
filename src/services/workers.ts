@@ -6,10 +6,10 @@ import { asNumber } from "../json";
 export async function listWorkers(token: string) {
   if (!isGuid(token)) return { success: false, message: "Неверный токен" };
   const user = await findLogin(token);
-  if (!user?.division) return { success: false, message: "Токен не найден или невалиден" };
+  if (!user) return { success: false, message: "Токен не найден или невалиден" };
 
   const people = await prisma.t_logins.findMany({
-    where: { division: { contains: user.division } },
+    where: user.division ? { division: { contains: user.division } } : {},
     orderBy: { name: "asc" },
   });
   const ids = people.map((person) => person.id);
