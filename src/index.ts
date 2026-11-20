@@ -69,11 +69,12 @@ async function onRequest(req: IncomingMessage, res: ServerResponse) {
     const params =
       req.method === "GET" ? queryParams(url) : ((await readBody(req)) as Record<string, unknown>);
     const record = params && typeof params === "object" && !Array.isArray(params) ? params : { data: params };
-    console.log("[request]", req.method, url.pathname, logText(record));
+    const quiet = url.pathname.toLowerCase().startsWith("/upd_");
+    if (!quiet) console.log("[request]", req.method, url.pathname, logText(record));
     const header = req.headers["x-exchange-key"];
     const exchangeHeader = Array.isArray(header) ? header[0] : header;
     const reply = await dispatch(url.pathname, record, exchangeHeader);
-    console.log("[response]", reply.status, url.pathname, logText(reply.text ?? reply.body));
+    if (!quiet) console.log("[response]", reply.status, url.pathname, logText(reply.text ?? reply.body));
     send(res, reply.status, reply.body, reply.text);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
