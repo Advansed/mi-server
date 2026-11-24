@@ -212,6 +212,7 @@ export async function insWorks(body: unknown) {
   return replaceSimple(rows, async (tx, row, action) => {
     const id = guidOf(row.id);
     if (!id) return;
+    const existing = action === 2 ? await tx.t_works.findUnique({ where: { id }, select: { division: true } }) : null;
     if (action === 0 || action === 2) await tx.t_works.deleteMany({ where: { id } });
     if (action === 1 || action === 2) {
       await tx.t_works.create({
@@ -220,6 +221,7 @@ export async function insWorks(body: unknown) {
           code: row.code == null ? null : String(row.code),
           name: String(row.name ?? ""),
           price: asNumber(row.price) ?? 0,
+          division: existing?.division ?? null,
         },
       });
     }
@@ -231,15 +233,24 @@ export async function insWorkTypes(body: unknown) {
   try {
     await prisma.$transaction(async (tx) => {
       const ids = rows.map((row) => String(guidOf(row.id)));
-      if (ids.length) await tx.t_work_types.deleteMany({ where: { id: { in: ids } } });
-      for (const row of rows) {
+      const kept = rows.filter((row) => {
         const action = actionOf(row);
-        if (action !== 1 && action !== 2) continue;
+        return action === 1 || action === 2;
+      });
+      const keptIds = kept.map((row) => String(guidOf(row.id)));
+      const previous = keptIds.length
+        ? await tx.t_work_types.findMany({ where: { id: { in: keptIds } }, select: { id: true, division: true } })
+        : [];
+      const divisionById = new Map(previous.map((row) => [row.id.toLowerCase(), row.division]));
+      if (ids.length) await tx.t_work_types.deleteMany({ where: { id: { in: ids } } });
+      for (const row of kept) {
+        const id = String(guidOf(row.id));
         await tx.t_work_types.create({
           data: {
-            id: String(guidOf(row.id)),
+            id,
             code: row.code == null ? null : String(row.code),
             name: row.name == null ? null : String(row.name),
+            division: divisionById.get(id.toLowerCase()) ?? null,
           },
         });
       }

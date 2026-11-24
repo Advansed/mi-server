@@ -28,9 +28,10 @@ async function divisionOf(token: unknown) {
 export async function getWorkTypes(params: Record<string, unknown>) {
   const auth = await divisionOf(params.token);
   if (auth.error) return auth.error;
-  const division = auth.user.division;
+  const division = auth.user.division?.trim();
+  if (!division) return { success: true, data: [] };
   const rows = await prisma.t_work_types.findMany({
-    where: division ? { division: { contains: division } } : {},
+    where: { division },
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
@@ -40,9 +41,10 @@ export async function getWorkTypes(params: Record<string, unknown>) {
 export async function getWorks(params: Record<string, unknown>) {
   const auth = await divisionOf(params.token);
   if (auth.error) return auth.error;
-  const division = auth.user.division;
+  const division = auth.user.division?.trim();
+  if (!division) return { success: true, data: [] };
   const rows = await prisma.t_works.findMany({
-    where: division ? { division: { contains: division } } : {},
+    where: { division },
     orderBy: { name: "asc" },
   });
   return {

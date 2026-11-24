@@ -6,6 +6,8 @@
     "build": "tsc",
     "prestart": "node scripts/drop-esm-proxy-agents.js",
     "start": "node --env-file=.env dist/index.js",
+    "prework": "node scripts/drop-esm-proxy-agents.js",
+    "work": "pm2 startOrRestart ecosystem.config.cjs",
     "predev": "node scripts/drop-esm-proxy-agents.js",
     "dev": "node --watch --env-file=.env dist/index.js",
     "dev:tsc": "tsc --watch",
