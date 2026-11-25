@@ -79,6 +79,7 @@ export async function insOrders(body: unknown) {
           division: row.division == null ? "" : String(row.division),
           lic: row.lic == null ? null : String(row.lic),
           applicant: row.applicant == null ? null : String(row.applicant),
+          phone: row.phone == null ? null : String(row.phone),
           address: row.address == null ? null : String(row.address),
           executor: guidOf(row.executor) ?? "",
           status: guidOf(row.status),

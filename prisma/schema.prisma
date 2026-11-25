@@ -120,7 +120,7 @@ model t_orders {
   division     String    @db.VarChar(128)
   lic          String?   @db.NVarChar(50)
   applicant    String?   @db.NVarChar(255)
-  phone        String?   @db.VarChar(128)
+  phone        String?   @db.VarChar(16)
   address      String?   @db.NVarChar(255)
   executor     String    @db.UniqueIdentifier
   status       String?   @db.UniqueIdentifier
