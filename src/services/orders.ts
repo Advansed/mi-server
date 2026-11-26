@@ -35,6 +35,7 @@ function orderView(row: {
     phone: row.phone,
     address: row.address,
     work_type_id: row.workType,
+    work_type: "",
     executor: row.executor,
     description: row.description,
     comment: row.comment,
@@ -56,7 +57,22 @@ export async function listInvoices(token: string) {
     orderBy: { date: "desc" },
     take: 50,
   });
-  return { success: true, data: rows.map(orderView) };
+  const typeIds = [...new Set(rows.flatMap((row) => (row.workType && isGuid(row.workType) ? [row.workType] : [])))];
+  const types = typeIds.length
+    ? await prisma.t_work_types.findMany({
+        where: { id: { in: typeIds } },
+        select: { id: true, name: true },
+      })
+    : [];
+  const typeName = new Map(types.map((type) => [type.id.toLowerCase(), type.name ?? ""]));
+  return {
+    success: true,
+    data: rows.map((row) => {
+      const view = orderView(row);
+      view.work_type = row.workType ? typeName.get(row.workType.toLowerCase()) || "" : "";
+      return view;
+    }),
+  };
 }
 
 export async function listMpInvoices(params: Record<string, unknown>) {

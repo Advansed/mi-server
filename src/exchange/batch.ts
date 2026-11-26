@@ -369,6 +369,14 @@ function unposted(value: Uint8Array | Buffer | null) {
   return value[0] === 0;
 }
 
+function workIdOf(works: string | null) {
+  const value = parseJson(works);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const id = (value as { id?: unknown }).id;
+  if (id == null || typeof id === "object") return null;
+  return String(id);
+}
+
 export async function exInvoices(body: unknown) {
   const keys = batchRows(body).flatMap((row) => {
     const id = guidOf(row.id);
@@ -431,17 +439,28 @@ export async function exActs(body: unknown) {
     where: typeFilter === undefined ? {} : { type: typeFilter },
     orderBy: { actDate: "desc" },
   });
-  const data = rows
-    .filter((row) => unposted(row.posted))
-    .slice(0, 10)
-    .map((row) => ({
-      id: row.id,
-      act_number: row.actNumber,
-      act_date: dateOnly(row.actDate),
-      status: row.status,
-      invoice_id: row.invoiceId,
-      title: row.title,
-      details: parseJson(row.details),
-    }));
+  const acts = rows.filter((row) => unposted(row.posted)).slice(0, 10);
+  const invoiceIds = [...new Set(acts.map((row) => row.invoiceId))];
+  const orders = invoiceIds.length
+    ? await prisma.t_orders.findMany({
+        where: { id: { in: invoiceIds } },
+        select: { id: true, works: true },
+      })
+    : [];
+  const workByInvoice = new Map<string, string | null>();
+  for (const order of orders) {
+    const key = order.id.toLowerCase();
+    if (!workByInvoice.has(key)) workByInvoice.set(key, workIdOf(order.works));
+  }
+  const data = acts.map((row) => ({
+    id: row.id,
+    act_number: row.actNumber,
+    act_date: dateOnly(row.actDate),
+    status: row.status,
+    invoice_id: row.invoiceId,
+    work_id: workByInvoice.get(row.invoiceId.toLowerCase()) ?? null,
+    title: row.title,
+    details: parseJson(row.details),
+  }));
   return { success: true, data };
 }
