@@ -64,8 +64,9 @@ export async function insOrders(body: unknown) {
     await prisma.$transaction(async (tx) => {
       const drop = rows.filter((row) => actionOf(row) === 0);
       if (drop.length) {
-        await tx.t_orders.deleteMany({
+        await tx.t_orders.updateMany({
           where: { OR: drop.map((row) => ({ id: String(row.id), licId: String(row.lic_id) })) },
+          data: { statusEx: "Завершен" },
         });
       }
       for (const row of rows) {
