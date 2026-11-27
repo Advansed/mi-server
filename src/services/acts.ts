@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { findLogin } from "../auth";
 import { prisma } from "../db";
 import { isGuid } from "../guid";
-import { asNumber, dateOnly, parseJson } from "../json";
+import { dateOnly, parseJson } from "../json";
 
 const ACT_PREFIX: Record<string, string> = {
   actbr: "АКТ-01",
@@ -91,16 +91,6 @@ export async function getAct(params: Record<string, unknown>) {
     const order = await prisma.t_orders.findFirst({ where: { id: params.invoice_id.trim() } });
     if (!order) return { success: false, message: "Заказ не найден" };
 
-    const agree = await prisma.t_agreements.findFirst({
-      where: { subscriberId: order.licId },
-      select: { id: true },
-    });
-    const tariffs = await prisma.t_tarifes.findMany({ where: { lic: order.licId } });
-    const equipIds = tariffs.map((row) => row.equip);
-    const equips = equipIds.length
-      ? await prisma.t_equipments.findMany({ where: { id: { in: equipIds } } })
-      : [];
-    const equipById = new Map(equips.map((row) => [row.id, row]));
     const now = new Date();
 
     return {
@@ -123,19 +113,8 @@ export async function getAct(params: Record<string, unknown>) {
             owner_phone: order.phone,
             object_address: order.address,
             object_type: "",
-            agree: agree?.id ?? null,
-            equipments: tariffs.map((row) => {
-              const equip = equipById.get(row.equip);
-              return {
-                id: equip?.id ?? null,
-                number: equip?.number ?? null,
-                model: equip?.model ?? null,
-                type: equip?.type ?? null,
-                work: row.worksName,
-                amount: asNumber(row.amount),
-                tarif: asNumber(row.tarif),
-              };
-            }),
+            agree: null,
+            equipments: [],
           },
         ],
       },

@@ -1,6 +1,6 @@
 import { prisma, type Tx } from "../db";
 import { isGuid } from "../guid";
-import { asDate, asNumber, dateOnly, parseJson } from "../json";
+import { asDate, asNumber, parseJson } from "../json";
 
 type Row = Record<string, unknown>;
 
@@ -348,35 +348,6 @@ export async function insTarifes(body: unknown) {
   }
 }
 
-const ACT_EXPORT: Record<string, string> = {
-  "01": "actbr",
-  "02": "actmr",
-  "03": "actms",
-  "04": "actplomb",
-  "05": "actsf",
-  "06": "actsge",
-  "07": "actda",
-  "08": "actmrr",
-  "09": "actdo",
-  "10": "predp",
-  "11": "actaad",
-  "12": "actwc",
-  "13": "work_completed_to",
-};
-
-function unposted(value: Uint8Array | Buffer | null) {
-  if (!value || value.length === 0) return true;
-  return value[0] === 0;
-}
-
-function workIdOf(works: string | null) {
-  const value = parseJson(works);
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const id = (value as { id?: unknown }).id;
-  if (id == null || typeof id === "object") return null;
-  return String(id);
-}
-
 export async function exInvoices(body: unknown) {
   const keys = batchRows(body).flatMap((row) => {
     const id = guidOf(row.id);
@@ -422,45 +393,10 @@ export async function exInvoices(body: unknown) {
 }
 
 export async function exActs(body: unknown) {
-  const source = isRow(body) ? body : {};
-  const ids = Array.isArray(source.data)
-    ? source.data.flatMap((item) => (isRow(item) && guidOf(item.id) ? [String(guidOf(item.id))] : []))
-    : [];
-  if (ids.length) {
-    await prisma.d_acts.updateMany({
-      where: { id: { in: ids } },
-      data: { posted: Buffer.from([1]) },
-    });
-  }
-
-  const actCode = source.act == null || source.act === "" ? null : String(source.act);
-  const typeFilter = actCode == null ? undefined : (ACT_EXPORT[actCode] ?? "");
-  const rows = await prisma.d_acts.findMany({
-    where: typeFilter === undefined ? {} : { type: typeFilter },
-    orderBy: { actDate: "desc" },
-  });
-  const acts = rows.filter((row) => unposted(row.posted)).slice(0, 10);
-  const invoiceIds = [...new Set(acts.map((row) => row.invoiceId))];
-  const orders = invoiceIds.length
-    ? await prisma.t_orders.findMany({
-        where: { id: { in: invoiceIds } },
-        select: { id: true, works: true },
-      })
-    : [];
-  const workByInvoice = new Map<string, string | null>();
-  for (const order of orders) {
-    const key = order.id.toLowerCase();
-    if (!workByInvoice.has(key)) workByInvoice.set(key, workIdOf(order.works));
-  }
-  const data = acts.map((row) => ({
-    id: row.id,
-    act_number: row.actNumber,
-    act_date: dateOnly(row.actDate),
-    status: row.status,
-    invoice_id: row.invoiceId,
-    work_id: workByInvoice.get(row.invoiceId.toLowerCase()) ?? null,
-    title: row.title,
-    details: parseJson(row.details),
-  }));
-  return { success: true, data };
+  const rows = await prisma.$queryRaw<Array<{ data: string }>>`
+    EXEC dbo.p_ex_acts ${JSON.stringify(body ?? {})}
+  `;
+  const text = rows[0]?.data;
+  if (!text) return { success: true, data: [] };
+  return JSON.parse(text) as { success: boolean; data: unknown };
 }
