@@ -3,7 +3,7 @@
   "version": "1.0.1",
   "description": "Node server with Prisma for mi-data",
   "scripts": {
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "prestart": "node scripts/drop-esm-proxy-agents.js",
     "start": "node --env-file=.env dist/index.js",
     "prework": "node scripts/drop-esm-proxy-agents.js",
