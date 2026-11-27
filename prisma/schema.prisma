@@ -26,6 +26,7 @@ model d_acts {
   id               String   @id @db.UniqueIdentifier
   type             String   @db.NVarChar(20)
   invoiceId        String   @map("invoice_id") @db.UniqueIdentifier
+  licId            String?  @map("lic_id") @db.UniqueIdentifier
   actNumber        String   @map("act_number") @db.NVarChar(50)
   actDate          DateTime @map("act_date") @db.Date
   createdAt        DateTime @map("created_at") @db.DateTime2

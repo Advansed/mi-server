@@ -53,6 +53,7 @@ function actPayload(row: {
   id: string;
   type: string;
   invoiceId: string;
+  licId: string | null;
   actNumber: string;
   actDate: Date;
   createdAt: Date;
@@ -66,6 +67,7 @@ function actPayload(row: {
     id: row.id,
     type: row.type,
     invoice_id: row.invoiceId,
+    lic_id: row.licId,
     act_number: row.actNumber,
     act_date: dateOnly(row.actDate),
     created_at: row.createdAt,
@@ -88,8 +90,11 @@ export async function getAct(params: Record<string, unknown>) {
   }
 
   if (isGuid(params.invoice_id) && typeof params.act_type === "string" && params.act_type) {
-    const order = await prisma.t_orders.findFirst({ where: { id: params.invoice_id.trim() } });
-    if (!order) return { success: false, message: "Заказ не найден" };
+    if (!isGuid(params.lic_id)) return { success: false, message: "Не указано задание" };
+    const order = await prisma.t_orders.findUnique({
+      where: { id_licId: { id: params.invoice_id.trim(), licId: params.lic_id.trim() } },
+    });
+    if (!order) return { success: false, message: "Заявка не найдена" };
 
     const now = new Date();
 
@@ -98,6 +103,7 @@ export async function getAct(params: Record<string, unknown>) {
       data: {
         type: params.act_type,
         invoice_id: order.id,
+        lic_id: order.licId,
         act_number: await nextActNumber(params.act_type),
         act_date: dateOnly(now),
         created_at: now,
@@ -129,8 +135,10 @@ export async function getActs(params: Record<string, unknown>) {
   if (!user) return { success: false, message: "Неверный токен" };
   if (!isGuid(params.invoice_id)) return { success: true, data: [] };
 
+  const invoiceId = params.invoice_id.trim();
+  const licId = isGuid(params.lic_id) ? params.lic_id.trim() : "";
   const rows = await prisma.d_acts.findMany({
-    where: { invoiceId: params.invoice_id.trim() },
+    where: licId ? { invoiceId, licId } : { invoiceId },
     orderBy: { createdAt: "desc" },
   });
   return {
@@ -138,6 +146,7 @@ export async function getActs(params: Record<string, unknown>) {
     data: rows.map((row) => ({
       id: row.id,
       type: row.type,
+      lic_id: row.licId,
       act_number: row.actNumber,
       act_date: dateOnly(row.actDate),
       status: row.status,
@@ -153,6 +162,7 @@ export async function setAct(params: Record<string, unknown>) {
 
   const actType = typeof params.type === "string" ? params.type : "";
   const invoiceId = isGuid(params.invoice_id) ? params.invoice_id.trim() : "";
+  const licId = isGuid(params.lic_id) ? params.lic_id.trim() : "";
   const actNumber =
     typeof params.act_number === "string" && params.act_number
       ? params.act_number
@@ -167,6 +177,13 @@ export async function setAct(params: Record<string, unknown>) {
       ? await prisma.d_acts.findUnique({ where: { id: params.id.trim() } })
       : null;
 
+    if (!existing) {
+      if (!licId) return { success: false, message: "Не указано задание" };
+      if (!invoiceId) return { success: false, message: "Заявка не найдена" };
+      const order = await prisma.t_orders.findUnique({ where: { id_licId: { id: invoiceId, licId } } });
+      if (!order) return { success: false, message: "Заявка не найдена" };
+    }
+
     const row = existing
       ? await prisma.d_acts.update({
           where: { id: existing.id },
@@ -178,6 +195,7 @@ export async function setAct(params: Record<string, unknown>) {
             documentScanPath:
               params.document_scan_path == null ? existing.documentScanPath : String(params.document_scan_path),
             details,
+            ...(licId ? { licId } : {}),
             updatedAt: now,
           },
         })
@@ -186,6 +204,7 @@ export async function setAct(params: Record<string, unknown>) {
             id: randomUUID(),
             type: actType,
             invoiceId,
+            licId,
             actNumber,
             actDate,
             createdAt: now,

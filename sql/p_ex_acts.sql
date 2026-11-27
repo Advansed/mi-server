@@ -27,7 +27,7 @@ as
 			, a.title
 			, JSON_QUERY(details) details
 		from d_acts a
-			left join t_orders b on a.invoice_id = b.id
+			left join t_orders b on a.invoice_id = b.id and a.lic_id = b.lic_id
 		where( posted is null or posted = 0x00)
 		and case
 				when  @type is null then type
